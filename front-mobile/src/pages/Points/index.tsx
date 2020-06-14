@@ -1,19 +1,145 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import Constants from 'expo-constants';
+import { Feather as Icon } from '@expo/vector-icons'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, SafeAreaView, Alert } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import MapView, { Marker } from 'react-native-maps';
+import { SvgUri } from 'react-native-svg';
+import * as Location from 'expo-location';
 
-const Points = () => {
-  return (
-    <View />
-  )
+import ItemsService from '../../services/ItemsService';
+import Item from '../../models/Item';
+import PointsService from '../../services/PointsService';
+import Point from '../../models/Point';
+
+interface IPointsParams {
+  city: string,
+  state: string
 }
 
-export default Points;
+const Points = () => {
+  const [items, setItems] = useState<Item[]>([]);
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [points, setPoints] = useState<Point[]>([]);
+  const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0]);
+  const navigation = useNavigation();
+  const route = useRoute();
+  const routeParams = route.params as IPointsParams;
+  useEffect(() => {
+    ItemsService.getItems().then(response => {
+      setItems(response);
+    });
+  }, []);
+
+  useEffect(() => {
+    PointsService.getAll(routeParams.city, routeParams.state, selectedItems.map(x => String(x)).join(',')).then(response => {
+      setPoints(response);
+    });
+}, [selectedItems]);
+
+useEffect(() => {
+  async function loadPosition() {
+    const { status } = await Location.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Oooops', 'Precisamos de sua permissão para obter a localização')
+      return;
+    }
+
+    const location = await Location.getCurrentPositionAsync();
+    const { latitude, longitude } = location.coords;
+    setInitialPosition([latitude, longitude]);
+  }
+  loadPosition();
+}, []);
+
+function handleNavigateBack() {
+  navigation.goBack();
+}
+
+function handleNavigateToDetail(id: number) {
+  navigation.navigate('Detail', { id });
+}
+
+function handleSelectItem(id: number) {
+  const oldItems = selectedItems;
+  let newItems = [];
+  if (oldItems.some(x => x == id)) {
+    newItems = oldItems.filter(x => x !== id);
+  } else {
+    newItems = [...oldItems, id];
+  }
+
+  setSelectedItems(newItems)
+}
+
+return (
+  <SafeAreaView style={{ flex: 1 }}>
+    <View style={styles.container}>
+      <TouchableOpacity onPress={handleNavigateBack}>
+        <Icon name="arrow-left" size={20} color="#34cb79" />
+      </TouchableOpacity>
+
+      <Text style={styles.title}>Bem Vindo</Text>
+      <Text style={styles.description}>Encontre no mapa um ponto de coleta</Text>
+
+      <View style={styles.mapContainer}>
+        {initialPosition[0] !== 0 && (
+          <MapView style={styles.map}
+            loadingEnabled={initialPosition[0] == 0}
+            initialRegion={{
+              latitude: initialPosition[0],
+              longitude: initialPosition[1],
+              longitudeDelta: 0.014,
+              latitudeDelta: 0.014
+            }}>
+            {points.map(point => (
+              <Marker key={String(point.id)}
+                style={styles.mapMarker}
+                onPress={() => handleNavigateToDetail(point.id)}
+                coordinate={{
+                  latitude: point.latitude,
+                  longitude: point.longitude
+                }}>
+                <View style={styles.mapMarkerContainer}>
+                  <Image style={styles.mapMarkerImage}
+                    source={{
+                      uri: point.image
+                    }} />
+                  <Text style={styles.mapMarkerTitle}>{point.name}</Text>
+                </View>
+              </Marker>
+            ))}
+          </MapView>
+        )}
+      </View>
+    </View>
+    <View style={styles.itemsContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {items.map(item => (
+          <TouchableOpacity
+            key={String(item.id)}
+            activeOpacity={0.6}
+            style={[
+              styles.item,
+              selectedItems.includes(item.id) ? styles.selectedItem : {}
+            ]}
+            onPress={() => handleSelectItem(item.id)}
+          >
+            <SvgUri width={42} height={42} uri={item.imageUrl} />
+            <Text style={styles.itemTitle}>{item.title}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  </SafeAreaView >
+)
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 20/* + Constants.statusBarHeight*/,
+    paddingTop: 20 + Constants.statusBarHeight,
   },
 
   title: {
@@ -44,7 +170,7 @@ const styles = StyleSheet.create({
 
   mapMarker: {
     width: 90,
-    height: 80, 
+    height: 80,
   },
 
   mapMarkerContainer: {
@@ -75,6 +201,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 16,
     marginBottom: 32,
+    paddingHorizontal: 32
   },
 
   item: {
@@ -105,3 +232,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+
+
+
+export default Points;

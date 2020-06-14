@@ -24,7 +24,7 @@ class PointsController {
     }
 
     const points = await query.distinct().select('points.*');
-
+    console.log(req.query);
     return res.json(points);
   }
 

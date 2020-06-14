@@ -1,42 +1,109 @@
-import React from 'react';
-import { View, Text, ImageBackground, StyleSheet, Image } from 'react-native';
-import { RectButton} from 'react-native-gesture-handler';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ImageBackground, StyleSheet, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { RectButton, TextInput } from 'react-native-gesture-handler';
 import { Feather as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import RNPickerSelect from 'react-native-picker-select';
+import LocationService from '../../services/LocationService';
 
 const Home = () => {
   const navigation = useNavigation();
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [states, setStates] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
 
   function handleNavigateToPoints() {
-    navigation.navigate('Points');
+    navigation.navigate('Points', { city, state });
   }
 
+  useEffect(() => {
+    LocationService.getStates()
+      .then((response) => {
+        setStates(response.map(x => x.code).sort());
+      })
+  }, []);
+
+
+  useEffect(() => {
+    if (state) {
+      LocationService.getCities(state)
+        .then((response) => {
+          setCities(response.map(x => x.name));
+        });
+    } else {
+      setStates([]);
+    }
+  }, [state]);
+
   return (
-    <ImageBackground 
-      source={require('../../assets/home-background.png')}
-      style={styles.container}
-      imageStyle={{width: 274, height: 368}}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.select({ ios: 0, android: 500 })}
+      behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
-      <View style={styles.main}>
-        <Image source={require("../../assets/logo.png")} />
-        <Text style={styles.title}>Seu marketplace de coleta de resíduos</Text>
-        <Text style={styles.description}>Ajudamos pessoas a encontrarem pontos de coleta de forma eficiente</Text>
-      </View>
-      <View style={styles.footer}>
-        <RectButton style={styles.button} onPress={handleNavigateToPoints}>
-          <View style={styles.buttonIcon}>
-            <Icon name="arrow-right" color="#FFF" size={24} />
+      <ImageBackground
+        source={require('../../assets/home-background.png')}
+        style={styles.container}
+        imageStyle={{ width: 274, height: 368 }}
+      >
+        <View style={styles.main}>
+          <Image source={require("../../assets/logo.png")} />
+          <View>
+            <Text style={styles.title}>Seu marketplace de coleta de resíduos</Text>
+            <Text style={styles.description}>Ajudamos pessoas a encontrarem pontos de coleta de forma eficiente</Text>
           </View>
-          <Text style={styles.buttonText}>
-            Entrar
+        </View>
+        <View style={styles.footer}>
+          <RNPickerSelect
+            style={stylesSelect}
+            onValueChange={value => setState(value)}
+            items={states.map(x => { return { label: x, value: x }; })}
+            placeholder={{ label: "Selecione um estado" }}
+            useNativeAndroidPickerStyle={false}
+          />
+          <RNPickerSelect
+            style={stylesSelect}
+            onValueChange={value => setCity(value)}
+            items={cities.map(x => { return { label: x, value: x }; })}
+            placeholder={{ label: "Selecione uma cidade" }}
+            useNativeAndroidPickerStyle={false}
+          />
+
+          <RectButton style={styles.button} onPress={handleNavigateToPoints}>
+            <View style={styles.buttonIcon}>
+              <Icon name="arrow-right" color="#FFF" size={24} />
+            </View>
+            <Text style={styles.buttonText}>
+              Entrar
           </Text>
-        </RectButton>
-      </View>
-    </ImageBackground>
+          </RectButton>
+        </View>
+      </ImageBackground>
+    </KeyboardAvoidingView>
   )
 }
 
 export default Home;
+
+const stylesSelect = StyleSheet.create({
+  inputAndroid: {
+    height: 60,
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    marginBottom: 8,
+    paddingHorizontal: 24,
+    fontSize: 16,
+  },
+  inputIOS: {
+    height: 60,
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    marginBottom: 8,
+    paddingHorizontal: 24,
+    fontSize: 16,
+  }
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -67,9 +134,6 @@ const styles = StyleSheet.create({
   },
 
   footer: {},
-
-  select: {},
-
   input: {
     height: 60,
     backgroundColor: '#FFF',

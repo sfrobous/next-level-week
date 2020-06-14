@@ -10,7 +10,7 @@ class ItemsController {
       return <ItemView>{
         id: x.id,
         title: x.title,
-        imageUrl: `http://localhost:3333/uploads/${x.image}`,
+        imageUrl: `http://192.168.1.11:3333/uploads/${x.image}`,
       };
     });
     return res.json(mappedItems);
