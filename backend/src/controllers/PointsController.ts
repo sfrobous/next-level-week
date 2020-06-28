@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 
 import PointItem from '../entities/PointItem';
 import Point from '../entities/Point';
+import { celebrate, Joi } from 'celebrate';
 
 class PointsController {
   async index(req: Request, res: Response) {
@@ -23,7 +24,14 @@ class PointsController {
       query = query.whereIn('point_items.itemId', itemsIds);
     }
 
-    const points = await query.distinct().select('points.*');
+    const points = (await query.distinct().select('points.*'))
+      .map(x => {
+        return {
+          ...x,
+          image: `http://192.168.1.12:3333/uploads/${x.image}`
+        };
+      });
+
     console.log(req.query);
     return res.json(points);
   }
@@ -32,6 +40,8 @@ class PointsController {
     const { id } = req.params;
     console.log(id);
     const point = await db('points').where('id', id).first();
+
+    point.image = `http://192.168.1.12:3333/uploads/${point.image}`;
 
     if (!point) {
       return res.status(400).json({ message: 'Point not found' });
@@ -45,6 +55,21 @@ class PointsController {
     return res.json({ ...point, items });
   }
 
+  createValidation = celebrate({
+    body: Joi.object().keys({
+      name: Joi.string().required(),
+      email: Joi.string().required().email(),
+      whatsapp: Joi.number().required(),
+      latitude: Joi.number().required(),
+      longitude: Joi.number().required(),
+      city: Joi.string().required(),
+      state: Joi.string().required().max(2),
+      items: Joi.string().required()
+    })
+  }, {
+    abortEarly: false
+  });
+
   async create(req: Request, res: Response) {
     const trx = await db.transaction();
     const point = <Point>{
@@ -55,22 +80,25 @@ class PointsController {
       longitude: req.body.longitude,
       city: req.body.city,
       state: req.body.state,
-      image: req.body.image
+      image: req.file.filename
     };
     const insertedIds = await trx('Points').insert(point);
     const { items } = req.body;
     const pointId = insertedIds[0];
-    const pointItems = items.map((itemId: number) => {
-      return <PointItem>{
-        itemId,
-        pointId
-      };
-    });
+    const pointItems = items
+      .split(',')
+      .map((item: string) => Number(item.trim()))
+      .map((itemId: number) => {
+        return <PointItem>{
+          itemId,
+          pointId
+        };
+      });
     const insertedIds2 = await trx('Point_Items').insert(pointItems);
 
     await trx.commit();
 
-    return res.json(<Point>{ id: pointId, ...point });
+    return res.json(<Point>{ ...point, id: pointId });
   }
 }
 

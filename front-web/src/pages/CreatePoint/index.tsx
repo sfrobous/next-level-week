@@ -10,11 +10,13 @@ import LocationService from '../../services/LocationService';
 import { LeafletMouseEvent } from 'leaflet';
 import NewPointCommand from '../../models/NewPointCommand';
 import PointsService from '../../services/PointsService';
+import ImageDropzone from '../../components/Dropzone';
 
 const CreatePoint = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [states, setStates] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File>();
   const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0]);
   const history = useHistory();
   const [formData, setFormData] = useState({
@@ -82,7 +84,7 @@ const CreatePoint = () => {
   function handleSelectItem(id: number) {
     const oldItems = formData.items;
     let newItems = [];
-    if (oldItems.some(x => x == id)) {
+    if (oldItems.some(x => x === id)) {
       newItems = oldItems.filter(x => x !== id);
     } else {
       newItems = [...oldItems, id];
@@ -109,7 +111,7 @@ const CreatePoint = () => {
       image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60'
     }
 
-    PointsService.create(newPoint).then(() => {
+    PointsService.create(newPoint, selectedFile as File).then(() => {
       alert('Sucesso!')
       history.push('/');
     });
@@ -127,6 +129,9 @@ const CreatePoint = () => {
       <main>
         <form onSubmit={handleSubmit}>
           <h1>Cadastro do <br /> ponto de coleta</h1>
+
+          <ImageDropzone onFileUploaded={setSelectedFile} />
+
           <fieldset>
             <legend>
               <h2>Dados</h2>
